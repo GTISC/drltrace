@@ -233,6 +233,49 @@ print_symbolic_args(const char *name, void *wrapcxt, app_pc func)
 }
 
 /****************************************************************************
+ * Library exit wrapping
+ */
+
+static void
+lib_exit(void *wrapcxt, void *user_data)
+{
+    const char *name = (const char *) user_data;
+    ptr_uint_t retval = (ptr_uint_t)drwrap_get_retval(wrapcxt);
+    void *drcontext = drwrap_get_drcontext(wrapcxt);
+    thread_id_t tid = dr_get_thread_id(drcontext);
+    
+    // Create a fake argument structure for the return value
+    drltrace_arg_t ret_arg;
+    memset(&ret_arg, 0, sizeof(ret_arg));
+    ret_arg.value = retval;
+    ret_arg.value64 = (uint64)retval;
+    ret_arg.ordinal = -1;  // Special ordinal for return value
+    ret_arg.mode = DRSYS_PARAM_RETVAL;
+    ret_arg.pre = false;
+    ret_arg.arg_name = "retval";
+    ret_arg.size = sizeof(ptr_uint_t);
+    ret_arg.reg = DR_REG_NULL;
+    
+    // Treat all return values as void type
+    ret_arg.type = DRSYS_TYPE_VOID;
+    ret_arg.type_name = "void";
+    
+    // Print thread ID and function name
+    if (tid != INVALID_THREAD_ID)
+        dr_fprintf(outf, "~~%d~~ ", tid);
+    else
+        dr_fprintf(outf, "~~Dr.L~~ ");
+    
+    // Print function name and "returns:"
+    dr_fprintf(outf, "%s returns", name);
+    
+    // Reuse the existing print_arg function
+    print_arg(drcontext, &ret_arg);
+    
+    dr_fprintf(outf, "\n");
+}
+
+/****************************************************************************
  * Library entry wrapping
  */
 
@@ -361,9 +404,6 @@ lib_entry(void *wrapcxt, INOUT void **user_data)
      */
     print_symbolic_args(name, wrapcxt, func);
 
-    /* Set up post-call wrapper to capture return value */
-    drwrap_set_post_call(wrapcxt, lib_exit, *user_data);
-
     if (op_print_ret_addr.get_value()) {
         ret_addr = drwrap_get_retaddr(wrapcxt);
         res = drmodtrack_lookup(drcontext, ret_addr, &mod_id, &mod_start);
@@ -377,49 +417,6 @@ lib_entry(void *wrapcxt, INOUT void **user_data)
     dr_fprintf(outf, "\n");
     if (mod != NULL)
         dr_free_module_data(mod);
-}
-
-/****************************************************************************
- * Library exit wrapping
- */
-
-static void
-lib_exit(void *wrapcxt, void *user_data)
-{
-    const char *name = (const char *) user_data;
-    ptr_uint_t retval = (ptr_uint_t)drwrap_get_retval(wrapcxt);
-    void *drcontext = drwrap_get_drcontext(wrapcxt);
-    thread_id_t tid = dr_get_thread_id(drcontext);
-    
-    // Create a fake argument structure for the return value
-    drltrace_arg_t ret_arg;
-    memset(&ret_arg, 0, sizeof(ret_arg));
-    ret_arg.value = retval;
-    ret_arg.value64 = (uint64)retval;
-    ret_arg.ordinal = -1;  // Special ordinal for return value
-    ret_arg.mode = DRSYS_PARAM_RETVAL | DRSYS_PARAM_INLINED;
-    ret_arg.pre = false;
-    ret_arg.arg_name = "retval";
-    ret_arg.size = sizeof(ptr_uint_t);
-    ret_arg.reg = DR_REG_NULL;
-    
-    // Treat all return values as void type
-    ret_arg.type = DRSYS_TYPE_VOID;
-    ret_arg.type_name = "void";
-    
-    // Print thread ID and function name
-    if (tid != INVALID_THREAD_ID)
-        dr_fprintf(outf, "~~%d~~ ", tid);
-    else
-        dr_fprintf(outf, "~~Dr.L~~ ");
-    
-    // Print function name and "returns:"
-    dr_fprintf(outf, "%s returns", name);
-    
-    // Reuse the existing print_arg function
-    print_arg(drcontext, &ret_arg);
-    
-    dr_fprintf(outf, "\n");
 }
 
 static void
