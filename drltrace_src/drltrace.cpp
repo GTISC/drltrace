@@ -244,6 +244,20 @@ lib_exit(void *wrapcxt, void *user_data)
     void *drcontext = drwrap_get_drcontext(wrapcxt);
     thread_id_t tid = dr_get_thread_id(drcontext);
     
+    // Get module information for the function
+    const char *modname = NULL;
+    app_pc func = drwrap_get_func(wrapcxt);
+    module_data_t *mod = dr_lookup_module(func);
+    if (mod != NULL)
+        modname = dr_module_preferred_name(mod);
+    
+    // Build the module & function string
+    char module_name[256];
+    memset(module_name, 0, sizeof(module_name));
+    unsigned int module_name_len = (unsigned int)snprintf(module_name, \
+        sizeof(module_name) - 1, "%s%s%s", modname == NULL ? "" : modname, \
+        modname == NULL ? "" : "!", name);
+    
     // Create a fake argument structure for the return value
     drltrace_arg_t ret_arg;
     memset(&ret_arg, 0, sizeof(ret_arg));
@@ -260,19 +274,23 @@ lib_exit(void *wrapcxt, void *user_data)
     ret_arg.type = DRSYS_TYPE_VOID;
     ret_arg.type_name = "void";
     
-    // Print thread ID and function name
+    // Print thread ID and module!function name
     if (tid != INVALID_THREAD_ID)
         dr_fprintf(outf, "~~%d~~ ", tid);
     else
         dr_fprintf(outf, "~~Dr.L~~ ");
     
-    // Print function name and "returns:"
-    dr_fprintf(outf, "%s returns", name);
+    // Print module!function name
+    dr_fprintf(outf, module_name);
     
     // Reuse the existing print_arg function
     print_arg(drcontext, &ret_arg);
     
     dr_fprintf(outf, "\n");
+    
+    // Clean up module data
+    if (mod != NULL)
+        dr_free_module_data(mod);
 }
 
 /****************************************************************************
