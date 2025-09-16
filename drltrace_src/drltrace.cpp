@@ -258,7 +258,59 @@ lib_exit(void *wrapcxt, void *user_data)
         sizeof(module_name) - 1, "%s%s%s", modname == NULL ? "" : modname, \
         modname == NULL ? "" : "!", name);
     
-    // Create a fake argument structure for the return value
+    // Apply filtering logic (same as lib_entry)
+    bool allowed = false;
+    bool tested = false;
+    for (unsigned int i = 0; (allowed == false) && (i < filter_function_whitelist_len); i++) {
+        tested = true;
+        unsigned int module_name_len_compare;
+        if (filter_function_whitelist[i].is_wildcard)
+            module_name_len_compare = MIN(module_name_len, \
+                filter_function_whitelist[i].func_name_len);
+        else
+            module_name_len_compare = module_name_len;
+
+        if (fast_strcmp(module_name, module_name_len_compare, \
+            filter_function_whitelist[i].func_name, \
+            filter_function_whitelist[i].func_name_len) == 0) {
+            allowed = true;
+        }
+    }
+
+    // Check the blacklist if it was specified instead of a whitelist
+    if (!allowed && filter_function_blacklist_len > 0) {
+        allowed = true;
+        for (unsigned int i = 0; allowed && (i < filter_function_blacklist_len); i++) {
+            tested = true;
+            unsigned int module_name_len_compare;
+            if (filter_function_blacklist[i].is_wildcard)
+                module_name_len_compare = MIN(module_name_len, \
+                    filter_function_blacklist[i].func_name_len);
+            else
+                module_name_len_compare = module_name_len;
+
+            if (fast_strcmp(module_name, module_name_len_compare, \
+                filter_function_blacklist[i].func_name, \
+                filter_function_blacklist[i].func_name_len) == 0) {
+                allowed = false;
+            }
+        }
+    }
+
+    // If filtering was performed and function is not allowed, return early
+    if (tested && !allowed) {
+        if (mod != NULL)
+            dr_free_module_data(mod);
+        return;
+    }
+    
+    // Try to get return value information from config if available
+    drltrace_arg_t *ret_arg_config = NULL;
+    if (op_use_config.get_value()) {
+        ret_arg_config = return_value_search(name);
+    }
+    
+    // Create argument structure for the return value
     drltrace_arg_t ret_arg;
     memset(&ret_arg, 0, sizeof(ret_arg));
     ret_arg.value = retval;
@@ -266,13 +318,22 @@ lib_exit(void *wrapcxt, void *user_data)
     ret_arg.ordinal = -1;  // Special ordinal for return value
     ret_arg.mode = DRSYS_PARAM_RETVAL;
     ret_arg.pre = false;
-    ret_arg.arg_name = "retval";
     ret_arg.size = sizeof(ptr_uint_t);
     ret_arg.reg = DR_REG_NULL;
     
-    // Treat all return values as void type
-    ret_arg.type = DRSYS_TYPE_VOID;
-    ret_arg.type_name = "void";
+    // Use config information if available, otherwise use defaults
+    if (ret_arg_config != NULL) {
+        ret_arg.type = ret_arg_config->type;
+        ret_arg.type_name = ret_arg_config->type_name;
+        ret_arg.arg_name = ret_arg_config->arg_name;
+        if (ret_arg_config->size > 0)
+            ret_arg.size = ret_arg_config->size;
+    } else {
+        // Default fallback
+        ret_arg.type = DRSYS_TYPE_VOID;
+        ret_arg.type_name = "void";
+        ret_arg.arg_name = "retval";
+    }
     
     // Print thread ID and module!function name
     if (tid != INVALID_THREAD_ID)
@@ -283,7 +344,7 @@ lib_exit(void *wrapcxt, void *user_data)
     // Print module!function name
     dr_fprintf(outf, module_name);
     
-    // Reuse the existing print_arg function
+    // Print the return value using existing print_arg function
     print_arg(drcontext, &ret_arg);
     
     dr_fprintf(outf, "\n");
