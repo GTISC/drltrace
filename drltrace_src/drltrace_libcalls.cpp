@@ -208,6 +208,18 @@ config_parse_type(std::string type_name, uint index)
         arg->type_name = "uint";
         arg->size = sizeof(UINT);
         arg->type = DRSYS_TYPE_UNSIGNED_INT;
+    } else if (type_name.compare("USHORT") == 0) {
+        arg->type_name = "USHORT";
+        arg->size = sizeof(USHORT);
+        arg->type = DRSYS_TYPE_UNSIGNED_INT;
+    } else if (type_name.compare("ULONG") == 0) {
+        arg->type_name = "ULONG";
+        arg->size = sizeof(ULONG);
+        arg->type = DRSYS_TYPE_UNSIGNED_INT;
+    } else if (type_name.compare("FLONG") == 0) {
+        arg->type_name = "FLONG";
+        arg->size = sizeof(FLONG);
+        arg->type = DRSYS_TYPE_UNSIGNED_INT;
     } else if (type_name.compare("DWORD") == 0) {
         arg->type_name = "DWORD";
         arg->size = sizeof(DWORD);
