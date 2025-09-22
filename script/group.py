@@ -1,6 +1,7 @@
 import re
 import argparse
 import sys
+import json
 from collections import defaultdict, deque
 from typing import Dict, List, Set, Tuple, Optional
 
@@ -204,6 +205,32 @@ class DependencyGrouper:
         except Exception as e:
             print(f"Error writing to file '{output_filename}': {e}")
             sys.exit(1)
+    
+    def save_grouped_results_json(self, output_filename: str):
+        """Save results to a JSON file with groups as keys and blocks as values"""
+        try:
+            json_data = {}
+            
+            for group_num, group in enumerate(self.groups, 1):
+                group_key = f"group_{group_num}"
+                blocks_list = []
+                
+                for block_id in group:
+                    func_call = self.function_calls[block_id - 1]  # block_id is 1-indexed
+                    block_data = {
+                        str(block_id): f"{func_call.dll_name}!{func_call.function_name}"
+                    }
+                    blocks_list.append(block_data)
+                
+                json_data[group_key] = blocks_list
+            
+            with open(output_filename, 'w') as f:
+                json.dump(json_data, f, indent=2)
+            
+            print(f"JSON results saved to '{output_filename}'")
+        except Exception as e:
+            print(f"Error writing JSON to file '{output_filename}': {e}")
+            sys.exit(1)
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -217,6 +244,7 @@ Examples:
   %(prog)s --input log.txt --no-details        # Hide detailed dependency information
   %(prog)s result.log --max-groups 5           # Show only first 5 groups
   %(prog)s result.log --quiet --output out.txt # Save to file without console output
+  %(prog)s result.log --json-output out.json   # Save results as JSON
         """)
     
     parser.add_argument('input', nargs='?', default='result.log',
@@ -227,6 +255,9 @@ Examples:
     
     parser.add_argument('-o', '--output', dest='output_file',
                       help='Output file for results (default: display on console)')
+    
+    parser.add_argument('--json-output', dest='json_output_file',
+                      help='Output file for JSON results')
     
     parser.add_argument('--no-details', action='store_true',
                       help='Hide detailed dependency and shared value information')
@@ -284,6 +315,12 @@ def main():
             print(f"Saving results to '{args.output_file}'...")
         show_details = not args.no_details
         grouper.save_grouped_results(args.output_file, show_details=show_details)
+    
+    # Save to JSON file if specified
+    if args.json_output_file:
+        if not args.quiet:
+            print(f"Saving JSON results to '{args.json_output_file}'...")
+        grouper.save_grouped_results_json(args.json_output_file)
     
     if not args.quiet:
         print("Analysis complete!")
