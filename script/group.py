@@ -218,7 +218,8 @@ class DependencyGrouper:
                 for block_id in group:
                     func_call = self.function_calls[block_id - 1]  # block_id is 1-indexed
                     block_data = {
-                        str(block_id): f"{func_call.dll_name}!{func_call.function_name}"
+                        "block_num": block_id,
+                        "api_name": f"{func_call.dll_name}!{func_call.function_name}"
                     }
                     blocks_list.append(block_data)
                 
