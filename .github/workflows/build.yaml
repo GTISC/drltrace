@@ -27,6 +27,7 @@ jobs:
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
+        toolset: 17.9.8
         
     - name: Setup CMake 3.31.8
       uses: jwlawson/actions-setup-cmake@v2
