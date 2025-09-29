@@ -26,8 +26,10 @@ jobs:
     - name: Setup VS Dev Environment
       uses: ilammy/msvc-dev-cmd@v1
       with:
-        arch: x64
-        
+        arch: 
+          - x64
+          - x86
+
     - name: Setup CMake 3.31.8
       uses: jwlawson/actions-setup-cmake@v2
       with:
