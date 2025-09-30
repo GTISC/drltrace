@@ -497,3 +497,6 @@ if (UNIX AND NOT X64)
   endif(BUILD_TOOL_TESTS)
 endif()
 
+if (X64)
+  add_compile_options(/wd5286)
+endif()
