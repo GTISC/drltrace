@@ -496,7 +496,3 @@ if (UNIX AND NOT X64)
     append_property_string(TARGET drltrace_app LINK_FLAGS "-m32")
   endif(BUILD_TOOL_TESTS)
 endif()
-
-if (X64)
-  add_compile_options(/wd5286)
-endif()
